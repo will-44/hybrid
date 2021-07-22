@@ -9,8 +9,9 @@ import numpy as np
 from pybullet_controller import RobotController
 import pybullet as p
 import time
+from scipy.spatial.transform import Rotation as R
 
-robot = RobotController(robot_type='3dof', end_eff_index=4)
+robot = RobotController(robot_type='ur5', end_eff_index=4)
 robot.createWorld(GUI=True)
 
 lecube = p.loadURDF("urdf/cube.urdf", useFixedBase=True)
@@ -18,13 +19,13 @@ lecube = p.loadURDF("urdf/cube.urdf", useFixedBase=True)
 p.setRealTimeSimulation(False)
 # forward dynamics simulation loop
 # for turning off link and joint damping
-initPos = np.array([0, 0, -1, 1])
+initPos = np.array([0, 0, -1, 1,0,0])
 for link_idx in range(len(initPos)):
     p.resetJointState(robot.robot_id, link_idx, initPos[link_idx])
 
-# for link_idx in range(robot.num_joints+1):
-#     p.changeDynamics(robot.robot_id, link_idx, linearDamping=2.0, angularDamping=2.0, jointDamping=2.0)
-#     p.changeDynamics(robot.robot_id, link_idx, maxJointVelocity=200)
+for link_idx in range(robot.num_joints+1):
+    p.changeDynamics(robot.robot_id, link_idx, linearDamping=0.0, angularDamping=0.0, jointDamping=0.0)
+    p.changeDynamics(robot.robot_id, link_idx, maxJointVelocity=200)
 
 # # Enable torque control
 p.setJointMotorControlArray(robot.robot_id, robot.controllable_joints,
@@ -114,7 +115,14 @@ while True:
     sum_fe = np.mean(last_fe)
     fz = fkp*(fe) + fki*sum_fe
 
-    fd = np.asarray((0, 0, fz, 0, 0, 0))
+    quaternion = p.getLinkState(robot.robot_id, 4)[1]
+
+    test = np.array(p.getMatrixFromQuaternion(quaternion))
+    test = np.reshape(test, (3, 3))
+
+    fd = np.dot(test, np.asarray((0, 0, -50)))
+
+    fd = np.array([fd[0], fd[1], fd[2], 0, 0, 0])
 
     tes = np.dot(J_inv, fd)
 

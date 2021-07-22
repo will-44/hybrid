@@ -44,15 +44,15 @@ class RobotController:
         #loading robot into the environment
         urdf_file = 'urdf/' + self.robot_type + '.urdf'
         self.robot_id = p.loadURDF(urdf_file, useFixedBase=True)
-        p.loadURDF("urdf/cube.urdf", useFixedBase=True)
+        #p.loadURDF("urdf/cube.urdf", useFixedBase=True)
         self.num_joints = p.getNumJoints(self.robot_id) # Joints
-        print('#Joints:',self.num_joints)
+        #print('#Joints:',self.num_joints)
         if self.controllable_joints is None:
             self.controllable_joints = list(range(1, self.num_joints-1))
-        print('#Controllable Joints:', self.controllable_joints)
+        #print('#Controllable Joints:', self.controllable_joints)
         if self.end_eff_index is None:
             self.end_eff_index = self.controllable_joints[-1]
-        print('#End-effector:', self.end_eff_index)
+        #print('#End-effector:', self.end_eff_index)
 
         if (view_world):
             while True:
@@ -69,7 +69,7 @@ class RobotController:
 
     # function for setting joint positions of robot
     def setJointPosition(self, position, kp=1.0, kv=1.0):
-        print('Joint position controller')
+        #print('Joint position controller')
         zero_vec = [0.0] * len(self.controllable_joints)
         p.setJointMotorControlArray(self.robot_id,
                                     self.controllable_joints,
@@ -83,23 +83,23 @@ class RobotController:
 
     # function to solve forward kinematics
     def solveForwardPositonKinematics(self, joint_pos):
-        print('Forward position kinematics')
+        #print('Forward position kinematics')
 
         # get end-effector link state
         eeState = p.getLinkState(self.robot_id, self.end_eff_index)
         link_trn, link_rot, com_trn, com_rot, frame_pos, frame_rot = eeState
         eePose = list(link_trn) + list(p.getEulerFromQuaternion(link_rot))
-        print('End-effector pose:', eePose)
+        #print('End-effector pose:', eePose)
         return eePose
 
     # function to solve inverse kinematics
     def solveInversePositionKinematics(self, end_eff_pose):
-        print('Inverse position kinematics')
+        #print('Inverse position kinematics')
         joint_angles =  p.calculateInverseKinematics(self.robot_id,
                                                     self.end_eff_index,
                                                     targetPosition=end_eff_pose[0:3],
                                                     targetOrientation=p.getQuaternionFromEuler(end_eff_pose[3:6]))
-        #print('Joint angles:', joint_angles)
+        ##print('Joint angles:', joint_angles)
         return joint_angles
 
     # function to get jacobian 
@@ -111,32 +111,32 @@ class RobotController:
         J_t = np.asarray(jac_t)
         J_r = np.asarray(jac_r)
         J = np.concatenate((J_t, J_r), axis=0)
-        #print('Jacobian:', J)
+        ##print('Jacobian:', J)
         return J
 
     # function to solve forward velocity kinematics
     def solveForwardVelocityKinematics(self, joint_pos, joint_vel):
-        print('Forward velocity kinematics')
+        #print('Forward velocity kinematics')
         J  = self.getJacobian(joint_pos)
         eeVelocity = J @ joint_vel
-        print('End-effector velocity:', eeVelocity)
+        #print('End-effector velocity:', eeVelocity)
         return eeVelocity
 
     #function to solve inverse velocity kinematics
     def solveInverseVelocityKinematics(self, end_eff_velocity):
-        print('Inverse velocity kinematics')
+        #print('Inverse velocity kinematics')
         joint_pos, _ , _ = self.getJointStates()
         J  = self.getJacobian(joint_pos)
         if len(self.controllable_joints) > 1:
             joint_vel = np.linalg.pinv(J) @ end_eff_velocity
         else:
             joint_vel = J.T @ end_eff_velocity
-        print('Joint velcoity:', joint_vel)
+        #print('Joint velcoity:', joint_vel)
         return joint_vel
 
     #function to do joint velcoity control
     def JointVelocityControl(self, joint_velocities, sim_time=2, max_force=200):
-        print('Joint velocity controller')
+        #print('Joint velocity controller')
         t=0
         while t<sim_time:
             p.setJointMotorControlArray(self.robot_id,
@@ -150,7 +150,7 @@ class RobotController:
 
     #function to do joint velcoity control
     def endEffectorVelocityControl(self, end_eff_vel, sim_time=2, max_forc=200):
-        print('End-effector velocity controller')
+        #print('End-effector velocity controller')
         t=0
         while t<sim_time:
             joint_velocities = self.solveInverseVelocityKinematics(end_eff_vel)
@@ -238,7 +238,7 @@ class RobotController:
         # get the desired trajectory
         q_d, dq_d, ddq_d = self.getTrajectory(th_initial, th_final, tf=final_time, dt=self.time_step)
         traj_points = q_d.shape[0]
-        print('#Trajectory points:', traj_points)
+        #print('#Trajectory points:', traj_points)
 
         # forward dynamics simulation loop
         # for turning off link and joint damping
@@ -256,19 +256,19 @@ class RobotController:
         while n < traj_points:
             tau = p.calculateInverseDynamics(self.robot_id, list(q_d[n]), list(dq_d[n]), list(ddq_d[n]))
             # tau += kd * dq_d[n] #if joint damping is turned off, this torque will not be required
-            # print(tau)
+            # #print(tau)
             
             # torque control  
             p.setJointMotorControlArray(self.robot_id, self.controllable_joints,
                                         controlMode = p.TORQUE_CONTROL, 
                                         forces = tau)
             theta, _, _ = self.getJointStates()
-            print('n:{}::th:{}'.format(n,theta))
+            #print('n:{}::th:{}'.format(n,theta))
             
             p.stepSimulation()
             time.sleep(self.time_step)
             n += 1
-        print('Desired joint angles:', th_final)
+        #print('Desired joint angles:', th_final)
         p.disconnect()
 
     # Function to do computed torque control
@@ -277,7 +277,7 @@ class RobotController:
         # get the desired trajectory
         q_d, dq_d, ddq_d = self.getTrajectory(th_initial, th_final, tf=final_time, dt=self.time_step)
         traj_points = q_d.shape[0]
-        print('#Trajectory points:', traj_points)
+        #print('#Trajectory points:', traj_points)
 
         # forward dynamics simulation loop
         # for turning off link and joint damping
@@ -304,19 +304,19 @@ class RobotController:
 
             tau = p.calculateInverseDynamics(self.robot_id, list(q), list(dq), list(aq))
             # tau += kd * dq_d[n] # if joint damping is turned off, this torque will not be required
-            # print(tau)
+            # #print(tau)
             
             # torque control  
             p.setJointMotorControlArray(self.robot_id, self.controllable_joints,
                                         controlMode = p.TORQUE_CONTROL, 
                                         forces = tau)
             
-            print('n:{}::th:{}'.format(n,q))
+            #print('n:{}::th:{}'.format(n,q))
 
             p.stepSimulation()
             time.sleep(self.time_step)
             n += 1
-        print('Desired joint angles:', th_final)
+        #print('Desired joint angles:', th_final)
         p.disconnect()
 
     # Function to do impedence control in task space
@@ -387,7 +387,7 @@ class RobotController:
             # Controlled Torque
             tau = G + Fq
             # tau += kd * np.asarray(dq) # if joint damping is turned off, this torque will not be required
-            print('tau:', tau)
+            #print('tau:', tau)
             
             # Activate torque control  
             p.setJointMotorControlArray(self.robot_id, self.controllable_joints,
@@ -428,12 +428,12 @@ class RobotController:
         while True:
             # position (x,y,z) desiree: matrice(6*6)
             Xd = desired_pose + qcx 
-            print ("Xd", Xd)
+            #print ("Xd", Xd)
             #input()
             # position des joint desire suivant Xd:  matrice(6*6)
             qd = self.solveInversePositionKinematics(Xd)
             qd = np.asarray(qd)
-            print ("qd", qd)
+            #print ("qd", qd)
             # position  et vitesse des joint actuel:  matrice(6*6)
             qa, dqa, _ = self.getJointStates() 
             # Transfomation en matrice:
@@ -441,15 +441,15 @@ class RobotController:
             dqa = np.asarray(dqa)
             # Calcule de l'erreur de position de joints:
             delta_q = qa - qd 
-            print ("delta_q", delta_q)
+            #print ("delta_q", delta_q)
             # calcule de la jacobienne dans la config actuel:
             J = self.getJacobian(qa) 
             J_inv = np.linalg.inv(J) 
             # Supression de l'asservisement sur l'axe z et teta_Z
             qc = np.dot(J_inv, (np.dot(C, np.dot(J, delta_q))))       
-            #print ("qc", qc)
+            ##print ("qc", qc)
             qcx = np.dot(qc, J)
-            print ("qcX", qcx)
+            #print ("qcX", qcx)
             qr = qc + qd
             q_prePI = qr - qa
             
@@ -475,7 +475,7 @@ class RobotController:
             
 
             qr_old = qr
-            print("cmd: ", CMD_final)
+            #print("cmd: ", CMD_final)
             # Activate torque control  
             p.setJointMotorControlArray(self.robot_id, self.controllable_joints,
                                         controlMode = p.TORQUE_CONTROL, 

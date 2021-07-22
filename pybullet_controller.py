@@ -420,7 +420,7 @@ class RobotController:
                         (0, 0, 0, 0, 0, 0),
                         (0, 0, 0, 1, 0, 0), 
                         (0, 0, 0, 0, 1, 0),
-                        (0, 0, 0, 0, 0, 0)])
+                        (0, 0, 0, 0, 0, 1)])
         
         q_prePI_somme = 0
         qr_old = 0
@@ -448,7 +448,7 @@ class RobotController:
             # Supression de l'asservisement sur l'axe z et teta_Z
             qc = np.dot(J_inv, (np.dot(C, np.dot(J, delta_q))))       
             #print ("qc", qc)
-            qcx = np.dot(J, qc)
+            qcx = np.dot(qc, J)
             print ("qcX", qcx)
             qr = qc + qd
             q_prePI = qr - qa

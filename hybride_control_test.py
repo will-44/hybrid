@@ -10,7 +10,7 @@ from pybullet_controller import RobotController
 import pybullet as p
 import time
 
-robot = RobotController(robot_type='3dof')
+robot = RobotController(robot_type='3dof', end_eff_index=4)
 robot.createWorld(GUI=True)
 
 lecube = p.loadURDF("urdf/cube.urdf", useFixedBase=True)
@@ -32,15 +32,15 @@ p.setJointMotorControlArray(robot.robot_id, robot.controllable_joints,
                             forces=np.zeros(len(robot.controllable_joints)))
 
 kd = 0.7 # from URDF file
-Kp = 50
+Kp = 100
 Kd = 2 * np.sqrt(Kp)
-Md = 0.05*np.eye(6)
+Md = 0.1*np.eye(6)
 
 # Target position and velcoity
-xd_list = [np.array([0.595, -0.198, 1.091, -1.5708, 0, 0]),
-           np.array([0.595, 0.198, 1.091, -1.5708, 0, 0]),
-           np.array([0.295, 0.198, 1.091, -1.5708, 0, 0]),
-           np.array([0.295, -0.198, 1.091, -1.5708, 0, 0])]
+xd_list = [np.array([0.795, -0.198, 1.091, -1.5708, 0, 0]),
+           np.array([0.795, 0.198, 1.091, -1.5708, 0, 0]),
+           np.array([0.495, 0.198, 1.091, -1.5708, 0, 0]),
+           np.array([0.495, -0.198, 1.091, -1.5708, 0, 0])]
 index = 0
 xd = xd_list[index]
 dxd = np.zeros(6)
@@ -53,11 +53,12 @@ last_ZForces = np.zeros(50)
 C = np.asarray([(1, 0, 0, 0, 0, 0),
                 (0, 1, 0, 0, 0, 0),
                 (0, 0, 0, 0, 0, 0),
-                (0, 0, 0, 1, 0, 0),
-                (0, 0, 0, 0, 1, 0),
-                (0, 0, 0, 0, 0, 1)])
+                (0, 0, 0, 0, 0, 0),
+                (0, 0, 0, 0, 0, 0),
+                (0, 0, 0, 0, 0, 0)])
 sum_fe = 0.0
 
+last_fe = np.zeros(50)
 
 while True:
 
@@ -104,18 +105,21 @@ while True:
     # Force in joint space
     Fq = np.dot(np.transpose(J), Fx)
 
-    fd = 5.0
+    fd = 2.0
     fe = fd-zForce
-    fkp = 1.2
-    sum_fe += fe
-    fz = fkp*(fe)
+    np.roll(last_fe, 1)
+    last_fe[0] = fe
+    fkp = 10
+    fki = 10
+    sum_fe = np.mean(last_fe)
+    fz = fkp*(fe) + fki*sum_fe
 
     fd = np.asarray((0, 0, fz, 0, 0, 0))
 
-   # tes = np.dot(fd, J_inv)
+    tes = np.dot(J_inv, fd)
 
     # Controlled Torque
-    tau = G + Fq + Cqq #+ tes
+    tau = G + Fq + Cqq + tes
     # tau += kd * np.asarray(dq) # if joint damping is turned off, this torque will not be required
     # print('tau:', tau)
 

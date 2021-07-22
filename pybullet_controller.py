@@ -347,11 +347,11 @@ class RobotController:
         # xd = np.array([0.6811421738723965, -0.24773390188802563, 1.44670878280948, -1.5700006464761678, 0.0007970376813495148, -0.5007963267725951]) #ur5-link
         # xd = np.array([-0.10857937593446423, 0.7166151451748437, 1.4467087828094798, -1.5700006464761673, 0.0007970376813502642, 1.5692036732274044]) #ur5-link
         xd = desired_pose
-        dxd = np.zeros(len(self.controllable_joints))
+        dxd = np.zeros(6)
 
         # define GUI sliders
         xdGUIids = self.TaskSpaceGUIcontrol(goal=xd)
-        ForceInitial = np.zeros(len(self.controllable_joints))
+        ForceInitial = np.zeros(6)
         ForceGUIids = self.ForceGUIcontrol(forces=ForceInitial, max_limit=10, min_limit=-10) 
 
         while True:

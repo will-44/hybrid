@@ -117,6 +117,12 @@
     <dynamics damping="0.0" friction="0.0"/>
   </joint>
   <link name="forearm_link">
+    <contact>
+      <lateral_friction value="0.0"/>
+      <rolling_friction value="0.0"/>
+      <contact_cfm value="0.0"/>
+      <contact_erp value="0.0"/>
+    </contact>
     <visual>
       <geometry>
         <mesh filename="../meshes/ur5/visual/forearm.obj"/>
@@ -139,7 +145,7 @@
   <joint name="ee_fixed_joint" type="fixed">
     <parent link="forearm_link"/>
     <child link="ee_link"/>
-    <origin rpy="0.0 0.0 1.57079632679" xyz="0.0 0.0823 0.0"/>
+    <origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.39225"/>
   </joint>
   <link name="ee_link">
      <contact>

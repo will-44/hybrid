@@ -9,6 +9,7 @@ import numpy as np
 from pybullet_controller import RobotController
 import pybullet as p
 import time
+import csv
 
 robot = RobotController(robot_type='3dof', end_eff_index=4)
 robot.createWorld(GUI=True)
@@ -32,15 +33,13 @@ p.setJointMotorControlArray(robot.robot_id, robot.controllable_joints,
                             forces=np.zeros(len(robot.controllable_joints)))
 
 kd = 0.7 # from URDF file
-Kp = 100
+Kp = 200
 Kd = 2 * np.sqrt(Kp)
-Md = 0.1*np.eye(6)
+Md = 0.01*np.eye(6)
 
 # Target position and velcoity
 xd_list = [np.array([0.795, -0.198, 1.091, -1.5708, 0, 0]),
-           np.array([0.795, 0.198, 1.091, -1.5708, 0, 0]),
-           np.array([0.495, 0.198, 1.091, -1.5708, 0, 0]),
-           np.array([0.495, -0.198, 1.091, -1.5708, 0, 0])]
+           np.array([0.795, 0.198, 1.091, -1.5708, 0, 0])]
 index = 0
 xd = xd_list[index]
 dxd = np.zeros(6)
@@ -58,76 +57,85 @@ C = np.asarray([(1, 0, 0, 0, 0, 0),
                 (0, 0, 0, 0, 0, 0)])
 sum_fe = 0.0
 
-last_fe = np.zeros(50)
+last_fe = np.zeros(150)
+iForce = 50
 
-while True:
+with open('zfa.csv', mode='w') as employee_file:
+    employee_writer = csv.writer(employee_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
 
-    #check for contact
-    contact = p.getContactPoints(lecube)
-    zForce = 0.0
-    for items in contact:
-        zForce += items[9]
-    np.roll(last_ZForces, 1)
-    last_ZForces[0] = zForce
-    zForce = last_ZForces.mean()
-    print("Force = " + str(zForce))
+    for aa in range(10000):
 
-    # get current joint states
-    q, dq, _ = robot.getJointStates()
+        # get current joint states
+        q, dq, _ = robot.getJointStates()
 
-    # Error in task space
-    x = robot.solveForwardPositonKinematics(q)
-    if np.linalg.norm(x[:2] - xd[:2]) < 0.1:
-        index += 1
-        if index > 3:
-            index = 0
-        xd = xd_list[index]
+        # Error in task space
+        x = robot.solveForwardPositonKinematics(q)
+        if np.linalg.norm(x[:2] - xd[:2]) < 0.05:
+            index += 1
+            if index > 1:
+                index = 0
+            xd = xd_list[index]
 
-    x_e = xd - x
-    x_e = np.dot(x_e, C)
-    dx = robot.solveForwardVelocityKinematics(q, dq)
-    dx_e = dxd - dx
-    dx_e = np.dot(dx_e, C)
+        #check for contact
+        iForce +=1
+        if(iForce >=50):
+            contact = p.getContactPoints(lecube)
+            zForce = 0.0
+            for items in contact:
+                zForce += items[9]
+            np.roll(last_ZForces, 1)
+            last_ZForces[0] = zForce
+            zForce = last_ZForces.mean()
+            employee_writer.writerow([zForce, x[0], xd[0], x[1], xd[1]])
+            print("Force = " + str(zForce))
+            iForce = 0
 
-    # Task space dynamics
-    # Jacobian
-    J = robot.getJacobian(q)
-    J_inv = np.linalg.pinv(J)
-    # Inertia matrix in the joint space
-    Mq, G, Cqq = robot.calculateDynamicMatrices()
-    # Inertia matrix in the task space
-    Mx = np.dot(np.dot(np.transpose(J_inv), Mq), J_inv)
-    # Force in task space
-    Fx = np.dot(np.dot(np.linalg.inv(Md), Mx), (np.dot(Kp, x_e) + np.dot(Kd, dx_e)))
-    # External Force applied
-    # F_w_ext = np.dot((np.dot(np.linalg.inv(Md), Mx) - np.eye(6)), np.array([0,0,zForce-10,0,0,0]))
-    # Fx += F_w_ext
-    # Force in joint space
-    Fq = np.dot(np.transpose(J), Fx)
 
-    fd = 2.0
-    fe = fd-zForce
-    np.roll(last_fe, 1)
-    last_fe[0] = fe
-    fkp = 10
-    fki = 10
-    sum_fe = np.mean(last_fe)
-    fz = fkp*(fe) + fki*sum_fe
+        x_e = xd - x
+        x_e = np.dot(x_e, C)
+        dx = robot.solveForwardVelocityKinematics(q, dq)
+        dx_e = dxd - dx
+        dx_e = np.dot(dx_e, C)
 
-    fd = np.asarray((0, 0, fz, 0, 0, 0))
+        # Task space dynamics
+        # Jacobian
+        J = robot.getJacobian(q)
+        J_inv = np.linalg.pinv(J)
+        # Inertia matrix in the joint space
+        Mq, G, Cqq = robot.calculateDynamicMatrices()
+        # Inertia matrix in the task space
+        Mx = np.dot(np.dot(np.transpose(J_inv), Mq), J_inv)
+        # Force in task space
+        Fx = np.dot(np.dot(np.linalg.inv(Md), Mx), (np.dot(Kp, x_e) + np.dot(Kd, dx_e)))
+        # External Force applied
+        # F_w_ext = np.dot((np.dot(np.linalg.inv(Md), Mx) - np.eye(6)), np.array([0,0,zForce-10,0,0,0]))
+        # Fx += F_w_ext
+        # Force in joint space
+        Fq = np.dot(np.transpose(J), Fx)
 
-    tes = np.dot(J_inv, fd)
+        fd = 5
+        fe = fd-zForce
+        np.roll(last_fe, 1)
+        last_fe[0] = fe
+        fkp = 30
+        fki = 2
+        sum_fe = np.mean(last_fe)
+        fz = fkp*(fe) + fki*sum_fe
 
-    # Controlled Torque
-    tau = G + Fq + Cqq + tes
-    # tau += kd * np.asarray(dq) # if joint damping is turned off, this torque will not be required
-    # print('tau:', tau)
+        fd = np.asarray((0, 0, fz, 0, 0, 0))
 
-    # Activate torque control
-    p.setJointMotorControlArray(robot.robot_id, robot.controllable_joints,
-                                controlMode=p.TORQUE_CONTROL,
-                                forces=tau)
+        tes = np.dot(J_inv, fd)
 
-    p.stepSimulation()
-    time.sleep(robot.time_step)
-p.disconnect()
+        # Controlled Torque
+        tau = G + Fq + Cqq + tes
+        # tau += kd * np.asarray(dq) # if joint damping is turned off, this torque will not be required
+        # print('tau:', tau)
+
+        # Activate torque control
+        p.setJointMotorControlArray(robot.robot_id, robot.controllable_joints,
+                                    controlMode=p.TORQUE_CONTROL,
+                                    forces=tau)
+
+        p.stepSimulation()
+        time.sleep(robot.time_step)
+    p.disconnect()
